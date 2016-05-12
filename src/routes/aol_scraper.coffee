@@ -3,6 +3,225 @@ router = express.Router()
 parseString = require('xml2js').parseString
 request = require 'request'
 cheerio = require 'cheerio'
+lda = require 'lda'
+fs = require 'fs'
+path = require 'path'
+nlp = require "nlp_compromise"
+
+
+cleanText = (text) ->
+  text = text.replace(/(?:^|\W)&(\w+)(?!\w)/ig,"")
+  text = text.replace(/(?:^|\W)@(\w+)(?!\w)/ig,"")
+
+  # text = text.replace(/\b&\S/ig,"")
+  # text = text.replace(/\b#\S/ig,"")
+  text = text.replace(/you/ig,"")
+  text = text.replace(/person/ig,"")
+  text = text.replace(/my/ig,"")
+  text = text.replace(/he/ig,"")
+  text = text.replace(/she/ig,"")
+  text = text.replace(/man/ig,"")
+  text = text.replace(/dude/ig,"")
+  text = text.replace(/women/ig,"")
+  text = text.replace(/someone/ig,"")
+  text = text.replace(/boy/ig,"")
+  text = text.replace(/girl/ig,"")
+  text = text.replace(/i/ig,"")
+  text = text.replace(/bro/ig,"")
+  text = text.replace(/guy/ig,"")
+  text = text.replace(/mom/ig,"")
+  text = text.replace(/dad/ig,"")
+  punctuationless = text.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g,"")
+  text = punctuationless.replace(/\s{2,}/g," ")
+  text
+
+
+getTopicsfromLDA = (text) ->
+
+  text = cleanText text
+  nlptext = nlp.text(text)
+  #console.log(nlptext.root())
+  #documents = text.match( /[^\.!\?]+[\.!\?]+/g )
+  people = nlptext.people()
+  organization = nlp.text(text).organizations()
+  places = nlp.text(text).places()
+
+
+
+  for i in [0...organization.length]
+    console.log(organization[i].text)
+
+  #console.log("people")
+  #console.log(people)
+  # console.log("organization")
+  # console.log(organization)
+  # console.log("places")
+  # console.log(places)
+
+  #console.log documents
+  result = people#lda(documents, 5, 1)
+  # console.log(result)
+  result
+
+
+
+extractPeople = (text, peopleArray) ->
+  text = cleanText text
+  nlptext = nlp.text(text)
+  people = nlptext.people()
+  for i in [0...people.length]
+    if peopleArray.indexOf(people[i].text) < 0
+      peopleArray.push(people[i].text)
+  peopleArray
+
+extractOrganizations = (text, orgArray) ->
+  text = cleanText text
+  nlptext = nlp.text(text)
+  org = nlptext.organizations()
+  for i in [0...org.length]
+    if orgArray.indexOf(org[i].text) < 0
+      orgArray.push(org[i].text)
+  orgArray
+
+extractPlaces = (text, placeArray) ->
+  text = cleanText text
+  nlptext = nlp.text(text)
+  places = nlptext.places()
+  for i in [0...places.length]
+    if placeArray.indexOf(places[i].text) < 0
+      placeArray.push(places[i].text)
+  placeArray
+
+pad = (str, max) ->
+  str = str.toString()
+  while str.length < max
+    str = "0" + str
+  str
+
+router.get '/clienttrain', (req, res, next) ->
+  bPeopleArray = []
+  bPlaceArray = []
+  bOrganizationArray = []
+
+  pPeopleArray = []
+  pPlaceArray = []
+  pOrganizationArray = []
+
+  sPeopleArray = []
+  sPlaceArray = []
+  sOrganizationArray = []
+
+  ePeopleArray = []
+  ePlaceArray = []
+  eOrganizationArray = []
+
+  tPeopleArray = []
+  tPlaceArray = []
+  tOrganizationArray = []
+
+  # entertainment - 387
+  # politics - 418
+  # sport - 512
+  # tech - 402
+  # business - 511
+
+
+  for i in [1...511]
+    fileName = pad i, 3
+    fileName += ".txt"
+    filename = path.join(__dirname, '../../data/bbc/business/' + fileName)
+    txt = fs.readFileSync filename, 'utf8'
+    extractPeople txt.toString(), bPeopleArray
+    extractPlaces txt.toString(), bPlaceArray
+    extractOrganizations txt.toString(), bOrganizationArray
+
+
+  for i in [1...512]
+    fileName = pad i, 3
+    fileName += ".txt"
+    filename = path.join(__dirname, '../../data/bbc/sport/' + fileName)
+    txt = fs.readFileSync filename, 'utf8'
+    extractPeople txt.toString(), sPeopleArray
+    extractPlaces txt.toString(), sPlaceArray
+    extractOrganizations txt.toString(), sOrganizationArray
+
+
+  for i in [1...418]
+    fileName = pad i, 3
+    fileName += ".txt"
+    console.log(fileName)
+    filename = path.join(__dirname, '../../data/bbc/politics/' + fileName)
+    txt = fs.readFileSync filename, 'utf8'
+    extractPeople txt.toString(), pPeopleArray
+    extractPlaces txt.toString(), pPlaceArray
+    extractOrganizations txt.toString(), pOrganizationArray
+
+
+  for i in [1...402]
+    fileName = pad i, 3
+    fileName += ".txt"
+    console.log(fileName)
+    filename = path.join(__dirname, '../../data/bbc/tech/' + fileName)
+    txt = fs.readFileSync filename, 'utf8'
+    extractPeople txt.toString(), tPeopleArray
+    extractPlaces txt.toString(), tPlaceArray
+    extractOrganizations txt.toString(), tOrganizationArray
+
+
+  for i in [1...387]
+    fileName = pad i, 3
+    fileName += ".txt"
+    console.log(fileName)
+    filename = path.join(__dirname, '../../data/bbc/entertainment/' + fileName)
+    txt = fs.readFileSync filename, 'utf8'
+    extractPeople txt.toString(), ePeopleArray
+    extractPlaces txt.toString(), ePlaceArray
+    extractOrganizations txt.toString(), eOrganizationArray
+
+  fs.writeFileSync('bPeopleArray.txt',bPeopleArray.join(','), 'utf8')
+  fs.writeFileSync('bPlaceArray.txt',bPlaceArray.join(','), 'utf8')
+  fs.writeFileSync('bOrganizationArray.txt',bOrganizationArray.join(','), 'utf8')
+
+  fs.writeFileSync('ePeopleArray.txt',ePeopleArray.join(','), 'utf8')
+  fs.writeFileSync('ePlaceArray.txt',ePlaceArray.join(','), 'utf8')
+  fs.writeFileSync('eOrganizationArray.txt',eOrganizationArray.join(','), 'utf8')
+
+  fs.writeFileSync('sPeopleArray.txt',sPeopleArray.join(','), 'utf8')
+  fs.writeFileSync('sPlaceArray.txt',sPlaceArray.join(','), 'utf8')
+  fs.writeFileSync('sOrganizationArray.txt',sOrganizationArray.join(','), 'utf8')
+
+  fs.writeFileSync('ePeopleArray.txt',ePeopleArray.join(','), 'utf8')
+  fs.writeFileSync('ePlaceArray.txt',ePlaceArray.join(','), 'utf8')
+  fs.writeFileSync('eOrganizationArray.txt',eOrganizationArray.join(','), 'utf8')
+
+  fs.writeFileSync('tPeopleArray.txt',tPeopleArray.join(','), 'utf8')
+  fs.writeFileSync('tPlaceArray.txt',tPlaceArray.join(','), 'utf8')
+  fs.writeFileSync('tOrganizationArray.txt',tOrganizationArray.join(','), 'utf8')
+
+  # Get similarity  based on the above files
+  userId = req.query.userId
+  data = {}
+  data.userId = userId
+  data.ratings =
+    business: 0.2
+    entertainment: 0.1
+    politics: 0.2
+    sport: 0.1
+    tech: 0.3
+  request.post {url: 'http://localhost:8888/update', body: JSON.stringify(data), headers: { 'Content-Type': 'application/json'}}, (err, response, body) ->
+    if err
+      res.status(500).end()
+    else if response.statusCode isnt 200
+      res.status(501).end()
+    else res.send(body)
+
+getTags = () ->
+  tags  = []
+  filename = path.join(__dirname, '../../data/tweetTXT.txt')
+  f = fs.readFileSync filename, 'utf8'
+  topics = getTopicsfromLDA f.toString()
+  tags = topics
+  tags
 
 makeQuery = (arr) ->
   str = escape(arr.join(' '))
@@ -71,11 +290,6 @@ router.get '/hot', (req, res, next) ->
       res.send result
 
 router.get '/rec', (req, res, next) ->
-
-  # array of tags
-  # TODO call a function to get tags
-  # pass into makeQuery
-  console.log req.query.tags
   request.get makeQuery(req.query.tags), (error, response, body) ->
     result = []
     if error
