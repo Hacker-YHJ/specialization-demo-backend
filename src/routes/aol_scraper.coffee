@@ -32,21 +32,24 @@ deanonymize = (s) ->
     s2 += String.fromCharCode arr2[i]
   s2.replace(/\+/g,' ')
 
-router.post '/user', (req, res, next) ->
-  tags = anonymize(req.body.username)
-  request.get "http://localhost:8888/tags?userid=#{tags}", (error, response, body) ->
+router.post '/update', (req, res, next) ->
+  data = req.body
+  data.userId = anonymize(data.userId)
+  request.post {url: 'http://localhost:8888/update', body: JSON.stringify(data), headers: { 'Content-Type': 'application/json'}}, (err, response, body) ->
+    if err
+      res.status(500).end()
+    else if response.statusCode isnt 200
+      res.status(501).end()
+    else res.status(200).end()
+
+router.get '/user', (req, res, next) ->
+  name = anonymize(req.query.userId)
+  request.get "http://localhost:8888/tags?userId=#{name}", (error, response, body) ->
     if error
       res.status(500).end()
     else if response.statusCode isnt 200
       res.status(501).end()
-    if response.length is null
-      # TODO
-      # new user
-      res.send ''
-    else
-      # TODO
-      # to go hot
-      res.send ''
+    else res.send body
 
 router.get '/hot', (req, res, next) ->
   url = 'http://www.aol.com/news/'
@@ -73,9 +76,6 @@ router.get '/rec', (req, res, next) ->
   # TODO call a function to get tags
   # pass into makeQuery
   console.log req.query.tags
-
-  #
-
   request.get makeQuery(req.query.tags), (error, response, body) ->
     result = []
     if error
