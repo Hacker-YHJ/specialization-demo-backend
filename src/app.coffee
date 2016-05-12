@@ -13,7 +13,7 @@ app.use bodyParser.urlencoded(extended: false)
 app.use cookieParser()
 
 # apply routes
-app.use '/spec', require './routes/aol_scraper'
+app.use '/', require './routes/aol_scraper'
 
 # catch 404 and forward to error handler
 app.use (req, res, next) ->
